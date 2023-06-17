@@ -5,47 +5,57 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #define PORT 2000
 #define BUFFER_SIZE 1024
 
-// Function to handle client connections. Who needs just one thread when you can have many?
+sem_t waitlist_sem;  // Semaphore for the wait list
+int num_connections = 0;
+
+// Function to handle client connections
 void *connection_handler(void *socket_desc) {
     int sock = *(int *)socket_desc;
     char buffer[BUFFER_SIZE] = {0};
+    sem_wait(&waitlist_sem);
+    num_connections++;
+    printf("Client %d has connected and grabbed a spot on the waitlist.\n", num_connections);
 
-    // Read the category of seat the client desires. 
+    // Read the category of seat, number of seats, and client's name
     memset(buffer, 0, sizeof(buffer));
     int category_bytes = recv(sock, buffer, sizeof(buffer) - 1, 0);
     if (category_bytes > 0) {
-        printf("Oh, the client wants a seat in the '%s' category. Fancy!\n", buffer);
+        printf("Category of seat requested: '%s'\n", buffer);
     } else {
-        printf("Something went wrong while receiving the category of seat from the client.\n");
+        printf("Failed to receive category of seat from the client.\n");
     }
 
-    // Read the number of seats the client is demanding.
+    // Read the number of seats requested
     memset(buffer, 0, sizeof(buffer));
     int num_seats_bytes = recv(sock, buffer, sizeof(buffer) - 1, 0);
     if (num_seats_bytes > 0) {
-        printf("The client's feeling greedy and wants '%s' seats. Better find 'em!\n", buffer);
+        printf("Number of seats requested: '%s'\n", buffer);
     } else {
-        printf("Oops! Failed to get the number of seats requested by the client. They won't be happy about that.\n");
+        printf("Failed to receive number of seats from the client.\n");
     }
 
-    // Read the client's name and surname. 
+    // Read the client's name
     memset(buffer, 0, sizeof(buffer));
     int name_bytes = recv(sock, buffer, sizeof(buffer) - 1, 0);
     if (name_bytes > 0) {
-        printf("Ah, the client goes by '%s'. Sounds fancy and important!\n", buffer);
+        printf("Client's name: '%s'\n", buffer);
     } else {
-        printf("Oh no, we missed the client's name! What a blunder...\n");
+        printf("Failed to receive client's name.\n");
     }
 
-    // Prepare a sassy response message. Gotta show off that personality!
-    char response[] = "Thank you for gracing us with your presence and reserving a seat! Enjoy the show!";
+    // Prepare a response message
+    char response[] = "Thank you for your reservation!";
     send(sock, response, strlen(response), 0);
 
-    // Close the connection. Time to bid farewell.
+    num_connections--;
+    sem_post(&waitlist_sem);
+
+    // Close the connection
     close(sock);
     free(socket_desc);
     pthread_exit(NULL);
@@ -63,11 +73,8 @@ int main() {
         return -1;
     }
 
-    // Set those socket options for address and port reuse. It's all about efficiency!
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
-        perror("Setsockopt? Who needs that? Well, apparently I do.");
-        return -1;
-    }
+    printf("server file created\n");
+
 
     address.sin_family = AF_INET;
     address.sin_addr.s_addr = INADDR_ANY;
@@ -85,6 +92,9 @@ int main() {
         return -1;
     }
 
+    printf("server listening\n");
+    sem_init(&waitlist_sem, 0, 2);
+
     // Accept incoming connections and handle them using threads. Time to multitask!
     while ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen))) {
         pthread_t thread_id;
@@ -96,6 +106,6 @@ int main() {
             return -1;
         }
     }
-
+    sem_destroy(&waitlist_sem);
     return 0;
 }
