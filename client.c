@@ -5,7 +5,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#define PORT 8080
+#define PORT 2000
 #define BUFFER_SIZE 1024
 
 int main() {
@@ -36,22 +36,22 @@ int main() {
 
     // Read user inputs and send data to the server
     char category[BUFFER_SIZE];
-    printf("Category of the seat (grandstand 1, grandstand 2, standing) : ");
+    printf("Category of the seat (grandstand 1, grandstand 2, standing): ");
     fgets(category, sizeof(category), stdin);
     category[strcspn(category, "\n")] = '\0';
-    send(sock, category, strlen(category), 0);
+    send(sock, category, strlen(category) + 1, 0);
 
     char numPlaces[BUFFER_SIZE];
     printf("Number of seats: ");
     fgets(numPlaces, sizeof(numPlaces), stdin);
     numPlaces[strcspn(numPlaces, "\n")] = '\0';
-    send(sock, numPlaces, strlen(numPlaces), 0);
+    send(sock, numPlaces, strlen(numPlaces) + 1, 0);
 
     char name[BUFFER_SIZE];
     printf("Name and surname: ");
     fgets(name, sizeof(name), stdin);
     name[strcspn(name, "\n")] = '\0';
-    send(sock, name, strlen(name), 0);
+    send(sock, name, strlen(name) + 1, 0);
 
     // Wait for the server's response and display it
     memset(buffer, 0, sizeof(buffer));

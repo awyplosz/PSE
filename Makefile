@@ -1,6 +1,6 @@
 # TP5 : Fichier Makefile
 
-EXE = client serveur
+EXE = client server
 
 all: ${EXE}
 
