@@ -6,153 +6,96 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 
-#define PORT 8080
-#define MAX_CLIENTS 5
+#define PORT 2000
 #define BUFFER_SIZE 1024
 
-pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-
-struct Client {
-    int socket;
-    int rank;
-    struct Client *next;
-};
-
-struct Queue {
-    struct Client *front, *rear;
-    int size;
-};
-
-struct Queue *createQueue() {
-    struct Queue *queue = (struct Queue *)malloc(sizeof(struct Queue));
-    queue->front = queue->rear = NULL;
-    queue->size = 0;
-    return queue;
-}
-
-int isQueueEmpty(struct Queue *queue) {
-    return (queue->front == NULL);
-}
-
-void enqueue(struct Queue *queue, struct Client *client) {
-    if (queue->rear == NULL) {
-        queue->front = queue->rear = client;
-    } else {
-        queue->rear->next = client;
-        queue->rear = client;
-    }
-    client->next = NULL;
-    queue->size++;
-}
-
-struct Client *dequeue(struct Queue *queue) {
-    if (isQueueEmpty(queue)) {
-        printf("The waiting queue is empty.\n");
-        return NULL;
-    }
-    struct Client *client = queue->front;
-    queue->front = client->next;
-    if (queue->front == NULL)
-        queue->rear = NULL;
-    queue->size--;
-    return client;
-}
-
-void *handleClient(void *arg) {
-    struct Client *client = (struct Client *)arg;
+// Function to handle client connections. Who needs just one thread when you can have many?
+void *connection_handler(void *socket_desc) {
+    int sock = *(int *)socket_desc;
     char buffer[BUFFER_SIZE] = {0};
 
-    // Send the position in the waiting list to the client
-    char response[50];
-    snprintf(response, sizeof(response), "You are in position %d in the waiting list.", client->rank);
-    send(client->socket, response, strlen(response), 0);
+    // Read the category of seat the client desires. 
+    memset(buffer, 0, sizeof(buffer));
+    int category_bytes = recv(sock, buffer, sizeof(buffer) - 1, 0);
+    if (category_bytes > 0) {
+        printf("Oh, the client wants a seat in the '%s' category. Fancy!\n", buffer);
+    } else {
+        printf("Something went wrong while receiving the category of seat from the client.\n");
+    }
 
-    // Receive client information
-    recv(client->socket, buffer, BUFFER_SIZE, 0);
+    // Read the number of seats the client is demanding.
+    memset(buffer, 0, sizeof(buffer));
+    int num_seats_bytes = recv(sock, buffer, sizeof(buffer) - 1, 0);
+    if (num_seats_bytes > 0) {
+        printf("The client's feeling greedy and wants '%s' seats. Better find 'em!\n", buffer);
+    } else {
+        printf("Oops! Failed to get the number of seats requested by the client. They won't be happy about that.\n");
+    }
 
-    // Process client information
+    // Read the client's name and surname. 
+    memset(buffer, 0, sizeof(buffer));
+    int name_bytes = recv(sock, buffer, sizeof(buffer) - 1, 0);
+    if (name_bytes > 0) {
+        printf("Ah, the client goes by '%s'. Sounds fancy and important!\n", buffer);
+    } else {
+        printf("Oh no, we missed the client's name! What a blunder...\n");
+    }
 
-    // Close the connection of the waiting client
-    close(client->socket);
-    printf("Client %d (in the waiting list) disconnected\n", client->rank);
+    // Prepare a sassy response message. Gotta show off that personality!
+    char response[] = "Thank you for gracing us with your presence and reserving a seat! Enjoy the show!";
+    send(sock, response, strlen(response), 0);
 
-    // Free memory for the Client structure
-    free(client);
-
+    // Close the connection. Time to bid farewell.
+    close(sock);
+    free(socket_desc);
     pthread_exit(NULL);
 }
 
 int main() {
-    int server_socket, client_socket;
-    struct sockaddr_in server_address, client_address;
-    pthread_t threads[MAX_CLIENTS];
-    int client_rank = 1;
+    int server_fd, new_socket;
+    struct sockaddr_in address;
+    int opt = 1;
+    int addrlen = sizeof(address);
 
-    if ((server_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("Error creating socket");
+    // Create a socket file descriptor. We're all about connections!
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
+        perror("Oh no! Socket creation failed. ");
         return -1;
     }
 
-    server_address.sin_family = AF_INET;
-    server_address.sin_addr.s_addr = INADDR_ANY;
-    server_address.sin_port = htons(PORT);
-
-    if (bind(server_socket, (struct sockaddr *)&server_address, sizeof(server_address)) < 0) {
-        perror("Error during binding");
+    // Set those socket options for address and port reuse. It's all about efficiency!
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
+        perror("Setsockopt? Who needs that? Well, apparently I do.");
         return -1;
     }
 
-    if (listen(server_socket, MAX_CLIENTS) < 0) {
-        perror("Error while listening");
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(PORT);
+
+    // Bind the socket to localhost port 2000. Let's get this party started!
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+        perror("Binding failed.");
         return -1;
     }
 
-    printf("The server is waiting for connections...\n");
+    // Listen for incoming connections. The more, the merrier!
+    if (listen(server_fd, 5) < 0) {
+        perror("Listen failed");
+        return -1;
+    }
 
-    struct Queue *waiting_queue = createQueue();
+    // Accept incoming connections and handle them using threads. Time to multitask!
+    while ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen))) {
+        pthread_t thread_id;
+        int *new_sock = malloc(sizeof(int));
+        *new_sock = new_socket;
 
-    while (1) {
-        socklen_t client_address_size = sizeof(client_address);
-        if ((client_socket = accept(server_socket, (struct sockaddr *)&client_address, &client_address_size)) < 0) {
-            perror("Error accepting client connection");
+        if (pthread_create(&thread_id, NULL, connection_handler, (void *)new_sock) < 0) {
+            perror("Thread creation failed. My grand plans ruined!");
             return -1;
         }
-
-            if (client_rank <= MAX_CLIENTS) {
-        struct Client *client = (struct Client *)malloc(sizeof(struct Client));
-        client->socket = client_socket;
-        client->rank = client_rank;
-
-        pthread_create(&threads[client_rank - 1], NULL, handleClient, (void *)client);
-
-        printf("Client %d connected\n", client_rank);
-
-        client_rank++;
-    } else {
-        struct Client *client = (struct Client *)malloc(sizeof(struct Client));
-        client->socket = client_socket;
-        client->rank = client_rank;
-        enqueue(waiting_queue, client);
-
-        char response[50];
-        snprintf(response, sizeof(response), "You are in position %d in the waiting list.", client_rank);
-        send(client_socket, response, strlen(response), 0);
-        printf("Client added to the waiting list\n");
     }
 
-    while (!isQueueEmpty(waiting_queue)) {
-        struct Client *waiting_client = dequeue(waiting_queue);
-
-        if (waiting_client != NULL) {
-            pthread_create(&threads[client_rank - 1], NULL, handleClient, (void *)waiting_client);
-
-            printf("Client %d (in the waiting list) connected\n", client_rank);
-
-            client_rank++;
-        }
-    }
+    return 0;
 }
-
-close(server_socket);
-
-return 0;
