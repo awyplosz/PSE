@@ -1,12 +1,10 @@
 # TP5 : Fichier Makefile
-#
-include ../Makefile.inc
 
-EXE = client, serveur
+EXE = client serveur
 
 all: ${EXE}
 
-${EXE): ${PSE_LIB}
+${EXE): ${PSE_PROJECT}
 
 clean:
 	rm -f *.o *~ ${EXE} journal.log
