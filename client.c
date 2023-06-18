@@ -34,6 +34,8 @@ int main() {
         return -1;
     }
 
+    printf("You are in the waiting list\n");
+
     // Read user inputs and send data to the server
     char category[BUFFER_SIZE];
     printf("Category of the seat (grandstand 1, grandstand 2, standing): ");
@@ -47,20 +49,30 @@ int main() {
     numPlaces[strcspn(numPlaces, "\n")] = '\0';
     send(sock, numPlaces, strlen(numPlaces) + 1, 0);
 
+
     char name[BUFFER_SIZE];
     printf("Name and surname: ");
     fgets(name, sizeof(name), stdin);
     name[strcspn(name, "\n")] = '\0';
     send(sock, name, strlen(name) + 1, 0);
 
-    // Wait for the server's response and display it
-    memset(buffer, 0, sizeof(buffer));
-    int bytes_received = recv(sock, buffer, sizeof(buffer) - 1, 0);
-    if (bytes_received > 0) {
-        printf("Server's response: %s\n", buffer);
-    } else {
-        printf("Error receiving server's response\n");
+
+   // Receive and display the server's response
+    while (1) {
+        memset(buffer, 0, sizeof(buffer));
+        int bytes_received = recv(sock, buffer, sizeof(buffer) - 1, 0);
+        if (bytes_received > 0) {
+            printf("Server's response: %s\n", buffer);
+        } else if (bytes_received == 0) {
+            printf("Connection closed by the server\n");
+            break;
+        } else {
+            printf("Error receiving server's response\n");
+            break;
+        }
     }
+
+
 
     // Close the socket
     close(sock);
