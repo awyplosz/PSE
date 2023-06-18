@@ -26,6 +26,27 @@ int standing_price = 80;
 
 int cart = 0;
 
+void create_receipt_file(char* name, const char* category, int numSeats, int price);
+void *connection_handler(void *socket_desc);
+
+void create_receipt_file(char* name, const char* category, int numSeats, int price) {
+    
+    char nomFichier[50];
+    snprintf(nomFichier, sizeof(nomFichier), "%s concert cart.txt", name);
+    
+    FILE* file = fopen(nomFichier, "w");
+    if (file == NULL) {
+        printf("Error creating the receipt file.\n");
+        return;
+    }
+
+    fprintf(file, "Client Name: %s\n", name);
+    fprintf(file, "Category: %s\n", category);
+    fprintf(file, "Number of Seats: %d\n", numSeats);
+    fprintf(file, "Price Paid: %d euros\n", price);
+
+    fclose(file);
+}
 
 // Function to handle client connections
 void *connection_handler(void *socket_desc) {
@@ -150,6 +171,8 @@ void *connection_handler(void *socket_desc) {
                 // Release the mutex
                 pthread_mutex_unlock(&treasury_mutex);
 
+                create_receipt_file(client_name, category, requested_seats, cart);
+
                 // Prepare a sassy response message. Gotta show off that personality!
                 char success_response[] = "Congratulations! You have successfully purchased the ticket. Enjoy the show!";
                 send(sock, success_response, strlen(success_response), 0);
@@ -217,6 +240,13 @@ int main() {
         if (pthread_create(&thread_id, NULL, connection_handler, (void *)new_sock) < 0) {
             perror("Thread creation failed. My grand plans ruined!");
             return -1;
+        }
+
+        pid_t child_pid = fork();
+        if (child_pid == 0) {
+            // Child process
+            execv("create_receipt_file", NULL);
+            exit(0);
         }
     }
     sem_destroy(&waitlist_sem);

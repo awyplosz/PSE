@@ -37,11 +37,10 @@ int main() {
         return -1;
     }
 
-    printf("You are in the waiting list\n");
-
     // Read user inputs and send data to the server
     char category[BUFFER_SIZE];
     printf("Welcome to the concert ticket sales server !\n");
+    printf("You are in the waiting list\n");
     printf("There are 3 categories of seat you can buy :\n");
     printf("grandstand 1 : 100 euros\ngrandstand 2 : 50 euros \nstanding : 80 euros\n"); 
     printf("You can buy several tickets in the same category\n"); 
