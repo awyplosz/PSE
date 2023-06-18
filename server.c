@@ -12,6 +12,10 @@
 
 sem_t waitlist_sem;  // Semaphore for the wait list
 int num_connections = 0;
+int granstand1_tickets = 10;
+int granstand2_tickets = 10;
+int standing_tickets = 10;
+
 
 // Function to handle client connections
 void *connection_handler(void *socket_desc) {
@@ -21,36 +25,83 @@ void *connection_handler(void *socket_desc) {
     num_connections++;
     printf("Client %d has connected and grabbed a spot on the waitlist.\n", num_connections);
 
-    // Read the category of seat, number of seats, and client's name
-    memset(buffer, 0, sizeof(buffer));
-    int category_bytes = recv(sock, buffer, sizeof(buffer) - 1, 0);
-    if (category_bytes > 0) {
-        printf("Category of seat requested: '%s'\n", buffer);
-    } else {
-        printf("Failed to receive category of seat from the client.\n");
-    }
+
+    // Read the category of seat the client desires.
+    char category[BUFFER_SIZE];
+    memset(category, 0, sizeof(category));
+    int bytes_received = recv(sock, category, sizeof(category) - 1, 0);
+    if (bytes_received > 0) {
+        // Check the ticket availability based on the category.
+        int available_tickets = 0;
+        if (strcmp(category, "grandstand 1") == 0) {
+            available_tickets = granstand1_tickets;
+        } else if (strcmp(category, "grandstand 2") == 0) {
+            available_tickets = granstand2_tickets;
+        } else if (strcmp(category, "standing") == 0) {
+            available_tickets = standing_tickets;
+        } else {
+             // Invalid category entered by the client.
+            char response[] = "Invalid category. Please choose a valid category.";
+            send(sock, response, strlen(response), 0);
+            sem_post(&waitlist_sem);
+            close(sock);
+            free(socket_desc);
+            pthread_exit(NULL);
+        }
+
+    // Respond with the ticket availability.
+    char response[BUFFER_SIZE];
+    snprintf(response, sizeof(response), "Available tickets for %s : %d", category, available_tickets);
+    send(sock, response, strlen(response), 0);
 
     // Read the number of seats requested
-    memset(buffer, 0, sizeof(buffer));
-    int num_seats_bytes = recv(sock, buffer, sizeof(buffer) - 1, 0);
+    char num_seat[BUFFER_SIZE];
+    memset(num_seat, 0, sizeof(num_seat));
+    int num_seats_bytes = recv(sock, num_seat, sizeof(buffer) - 1, 0);
     if (num_seats_bytes > 0) {
-        printf("Number of seats requested: '%s'\n", buffer);
-    } else {
+        printf("Number of seats requested: '%s'\n", num_seat);
+    } 
+    else {
         printf("Failed to receive number of seats from the client.\n");
     }
 
     // Read the client's name
-    memset(buffer, 0, sizeof(buffer));
-    int name_bytes = recv(sock, buffer, sizeof(buffer) - 1, 0);
+    char client_name[BUFFER_SIZE];
+    memset(client_name, 0, sizeof(buffer));
+    int name_bytes = recv(sock, client_name, sizeof(buffer) - 1, 0);
     if (name_bytes > 0) {
-        printf("Client's name: '%s'\n", buffer);
+        printf("Client's name: '%s'\n", client_name);
     } else {
         printf("Failed to receive client's name.\n");
     }
 
-    // Prepare a response message
-    char response[] = "Thank you for your reservation!";
-    send(sock, response, strlen(response), 0);
+    int requested_seats = atoi(num_seat);
+        if (available_tickets >= requested_seats) {
+            // Update the ticket count.
+            if (strcmp(category, "grandstand 1") == 0) {
+                granstand1_tickets -= requested_seats;
+            } else if (strcmp(category, "grandstand 2") == 0) {
+                granstand2_tickets -= requested_seats;
+            } else if (strcmp(category, "standing") == 0) {
+                standing_tickets -= requested_seats;
+            }
+
+            // Prepare a response message.
+            char response[] = "Ticket(s) reserved! Enjoy the show!\n";
+            send(sock, response, strlen(response), 0);
+        } 
+        else {
+            // Not enough tickets available.
+            char response[] = "Apologies, but there are not enough tickets available.\n";
+            send(sock, response, strlen(response), 0);
+        }
+   
+    } 
+    else {
+        // Error receiving category.
+        char response[] = "Error receiving category. Please try again.";
+        send(sock, response, strlen(response), 0);
+    }
 
     num_connections--;
     sem_post(&waitlist_sem);
