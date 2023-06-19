@@ -39,28 +39,57 @@ int main() {
 
     // Read user inputs and send data to the server
     char category[BUFFER_SIZE];
-    printf("Welcome to the concert ticket sales server !\n");
-    printf("You are in the waiting list\n");
-    printf("There are 3 categories of seat you can buy :\n");
-    printf("grandstand 1 : 100 euros\ngrandstand 2 : 50 euros \nstanding : 80 euros\n"); 
-    printf("You can buy several tickets in the same category\n"); 
-    printf("Which category do you want to buy : ");
-    fgets(category, sizeof(category), stdin);
-    category[strcspn(category, "\n")] = '\0';
+    printf("===================================================================\n");
+    printf("|          Welcome to the concert ticket sales server !           |\n");
+    printf("|                 You are in the waiting list                     |\n");
+    printf("|                                                                 |\n");
+    printf("| There are 3 categories of seat you can buy :                    |\n");
+    printf("|   - grandstand 1 : 100 euros                                    |\n");
+    printf("|   - grandstand 2 :  50 euros                                    |\n"); 
+    printf("|   - standing     :  80 euros                                    |\n"); 
+    printf("|                                                                 |\n");
+    printf("| You can buy several tickets in the same category                |\n");
+    printf("===================================================================\n\n");
+    while (1) {
+        printf(" Which category do you want to buy: ");
+        fgets(category, sizeof(category), stdin);
+        category[strcspn(category, "\n")] = '\0';
+
+        // Perform input validation
+        if (strcmp(category, "grandstand 1") == 0 || strcmp(category, "grandstand 2") == 0 || strcmp(category, "standing") == 0) {
+            break; // Valid input, exit the loop
+        }
+        else {
+            printf(" Invalid category. Please choose a valid category.\n");
+        }
+    }
     send(sock, category, strlen(category) + 1, 0);
 
     server_response(sock);
 
     char numPlaces[BUFFER_SIZE];
-    printf("Choose the number of seats : ");
-    fgets(numPlaces, sizeof(numPlaces), stdin);
-    numPlaces[strcspn(numPlaces, "\n")] = '\0';
+    while (1) {
+        printf(" Choose the number of seats: ");
+        fgets(numPlaces, sizeof(numPlaces), stdin);
+        numPlaces[strcspn(numPlaces, "\n")] = '\0';
+
+        // Check for valid number of seats
+        int requested_seats = atoi(numPlaces);
+        if (requested_seats <= 0) {
+            printf(" Invalid number of seats. Please enter a positive integer.\n");
+        }
+        else {
+            break;
+        }
+    }
+
     send(sock, numPlaces, strlen(numPlaces) + 1, 0);
+
 
     server_response(sock);
 
     char name[BUFFER_SIZE];
-    printf("Name and surname: ");
+    printf(" Name and surname: ");
     fgets(name, sizeof(name), stdin);
     name[strcspn(name, "\n")] = '\0';
     send(sock, name, strlen(name) + 1, 0);
@@ -87,12 +116,12 @@ void server_response(int sock){
     memset(buffer, 0, sizeof(buffer));
     int bytes_received = recv(sock, buffer, sizeof(buffer) - 1, 0);
     if (bytes_received > 0) {
-        printf("Server's response: %s\n", buffer);
+        printf(" Server's response: %s\n", buffer);
     } else if (bytes_received == 0) {
-        printf("Connection closed by the server\n");
+        printf(" Connection closed by the server\n");
         return;
     } else {
-        printf("Error receiving server's response\n");
+        printf(" Error receiving server's response\n");
         return;
     }
 

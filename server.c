@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <signal.h>
 
 #define PORT 2000
 #define BUFFER_SIZE 1024
@@ -153,7 +154,7 @@ void *connection_handler(void *socket_desc) {
         if (bytes_recvd > 0) {
         // Check the ticket availability based on the category.
 
-        if (strcmp(treasure, "yes") == 0){
+        if (strcmp(treasure, "yes") == 0 || strcmp(treasure, "y") == 0 || strcmp(treasure, "1") == 0){
             // Acquire the mutex to access the treasury
                 pthread_mutex_lock(&treasury_mutex);
 
@@ -196,7 +197,14 @@ void *connection_handler(void *socket_desc) {
     
 }
 
+// Signal handler for SIGINT (Ctrl+C)
+void handleSignal(int signal) {
+    // Do nothing, ignoring the signal
+}
+
 int main() {
+    signal(SIGINT, handleSignal);
+    signal(SIGPIPE, handleSignal);
     int server_fd, new_socket;
     struct sockaddr_in address;
     int opt = 1;
